@@ -33,6 +33,7 @@ contents:
       owner: root
       group: teleproxy
 scripts:
+  preinstall: ./files/preinstall.sh
   postinstall: ./files/postinstall.sh
   preremove: ./files/preremove.sh
   postremove: ./files/postremove.sh
