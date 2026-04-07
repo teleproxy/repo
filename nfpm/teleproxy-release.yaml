@@ -1,7 +1,7 @@
 name: teleproxy-release
 arch: noarch
 platform: linux
-version: "1.0.0"
+version: "1.0.1"
 release: "1"
 section: net
 priority: optional

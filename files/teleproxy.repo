@@ -6,6 +6,8 @@ gpgcheck=1
 repo_gpgcheck=1
 gpgkey=https://teleproxy.github.io/repo/RPM-GPG-KEY-teleproxy
 metadata_expire=1h
+# Skip cleanly when running on Fedora (this section's baseurl won't exist).
+skip_if_unavailable=1
 
 [teleproxy-fedora]
 name=Teleproxy for Fedora $releasever
@@ -15,3 +17,5 @@ gpgcheck=1
 repo_gpgcheck=1
 gpgkey=https://teleproxy.github.io/repo/RPM-GPG-KEY-teleproxy
 metadata_expire=1h
+# Skip cleanly when running on RHEL/Alma/Rocky (this section's baseurl won't exist).
+skip_if_unavailable=1
