@@ -70,15 +70,16 @@ jobs:
         env:
           RPM_GPG_PRIVATE_KEY: ${{ secrets.RPM_GPG_PRIVATE_KEY }}
         run: |
-          GNUPGHOME=$(mktemp -d)
+          export GNUPGHOME=$(mktemp -d)
           chmod 700 "$GNUPGHOME"
-          echo "GNUPGHOME=$GNUPGHOME" >> "$GITHUB_ENV"
           printf '%s' "$RPM_GPG_PRIVATE_KEY" | gpg --batch --import
           gpg --list-secret-keys --with-colons
           # Export armored copy for nfpm signing
           KEY_FILE="$GNUPGHOME/signing-key.asc"
           gpg --armor --export-secret-keys 'Teleproxy' > "$KEY_FILE"
           chmod 600 "$KEY_FILE"
+          # Persist for subsequent steps
+          echo "GNUPGHOME=$GNUPGHOME" >> "$GITHUB_ENV"
           echo "SIGNING_KEY_FILE=$KEY_FILE" >> "$GITHUB_ENV"
           echo "SIGNING_KEY_UID=Teleproxy" >> "$GITHUB_ENV"
 
