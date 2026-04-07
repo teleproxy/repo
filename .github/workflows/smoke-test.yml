@@ -1,0 +1,52 @@
+name: Smoke test
+
+# Real dnf install against the live published repo, in containers for every
+# distro we support. Catches regressions in the .repo file, the GPG key,
+# and the postinstall scripts before users hit them.
+
+on:
+  workflow_run:
+    workflows: ["Build and publish"]
+    types: [completed]
+  workflow_dispatch:
+
+jobs:
+  install:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - rockylinux:9
+          - almalinux:10
+          - fedora:42
+    steps:
+      - name: dnf install teleproxy in ${{ matrix.image }}
+        run: |
+          docker run --rm ${{ matrix.image }} bash -ex <<'SCRIPT'
+            dnf install -y https://teleproxy.github.io/repo/teleproxy-release-latest.noarch.rpm
+            dnf install -y teleproxy
+
+            # postinstall ran
+            rpm -q teleproxy
+            test -f /etc/teleproxy/config.toml
+            grep -q '^key = "[0-9a-f]\{32\}"' /etc/teleproxy/config.toml
+            getent passwd teleproxy
+            test -f /usr/lib/systemd/system/teleproxy.service
+            /usr/bin/teleproxy 2>&1 | head -1 | grep -q teleproxy
+
+            # signature verified during install (would 've failed otherwise on dnf >= 4)
+
+            # upgrade preserves user customization
+            MARK="user-marker-$(date +%s)"
+            echo "# $MARK" >> /etc/teleproxy/config.toml
+            dnf reinstall -y teleproxy
+            grep -q "$MARK" /etc/teleproxy/config.toml
+
+            # uninstall leaves config in place
+            dnf remove -y teleproxy
+            test -f /etc/teleproxy/config.toml
+          SCRIPT
