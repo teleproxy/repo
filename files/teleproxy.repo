@@ -1,0 +1,17 @@
+[teleproxy-el]
+name=Teleproxy for EL$releasever
+baseurl=https://teleproxy.github.io/repo/rpm/el$releasever/$basearch/
+enabled=1
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=https://teleproxy.github.io/repo/RPM-GPG-KEY-teleproxy
+metadata_expire=1h
+
+[teleproxy-fedora]
+name=Teleproxy for Fedora $releasever
+baseurl=https://teleproxy.github.io/repo/rpm/fedora/$releasever/$basearch/
+enabled=1
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=https://teleproxy.github.io/repo/RPM-GPG-KEY-teleproxy
+metadata_expire=1h

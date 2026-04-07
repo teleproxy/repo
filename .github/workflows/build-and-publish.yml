@@ -1,0 +1,120 @@
+name: Build and publish
+
+on:
+  repository_dispatch:
+    types: [new-release]
+  push:
+    branches: [main]
+    paths:
+      - 'nfpm/**'
+      - 'files/**'
+      - 'scripts/**'
+      - 'RPM-GPG-KEY-teleproxy'
+      - '.github/workflows/build-and-publish.yml'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Teleproxy tag to package (e.g. v4.2.1). Empty = latest stable.
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve target tag
+        id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -n "${{ github.event.client_payload.tag }}" ]; then
+              TAG="${{ github.event.client_payload.tag }}"
+          elif [ -n "${{ github.event.inputs.tag }}" ]; then
+              TAG="${{ github.event.inputs.tag }}"
+          else
+              TAG=$(gh release view --repo teleproxy/teleproxy --json tagName -q .tagName)
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "Resolved tag: $TAG"
+
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y createrepo-c rpm
+          # nfpm
+          NFPM_VERSION=2.43.0
+          curl -fsSL "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_Linux_x86_64.tar.gz" \
+              | sudo tar -xz -C /usr/local/bin nfpm
+          nfpm --version
+
+      - name: Download teleproxy binaries from upstream release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p bin
+          gh release download "${{ steps.tag.outputs.tag }}" \
+              --repo teleproxy/teleproxy \
+              --pattern 'teleproxy-linux-*' \
+              --dir bin/
+          mv bin/teleproxy-linux-amd64 bin/teleproxy-amd64
+          mv bin/teleproxy-linux-arm64 bin/teleproxy-arm64
+          chmod +x bin/teleproxy-*
+          file bin/teleproxy-* | tee /dev/stderr | grep -q "statically linked"
+
+      - name: Import signing key
+        env:
+          RPM_GPG_PRIVATE_KEY: ${{ secrets.RPM_GPG_PRIVATE_KEY }}
+        run: |
+          GNUPGHOME=$(mktemp -d)
+          chmod 700 "$GNUPGHOME"
+          echo "GNUPGHOME=$GNUPGHOME" >> "$GITHUB_ENV"
+          printf '%s' "$RPM_GPG_PRIVATE_KEY" | gpg --batch --import
+          gpg --list-secret-keys --with-colons
+          # Export armored copy for nfpm signing
+          KEY_FILE="$GNUPGHOME/signing-key.asc"
+          gpg --armor --export-secret-keys 'Teleproxy' > "$KEY_FILE"
+          chmod 600 "$KEY_FILE"
+          echo "SIGNING_KEY_FILE=$KEY_FILE" >> "$GITHUB_ENV"
+          echo "SIGNING_KEY_UID=Teleproxy" >> "$GITHUB_ENV"
+
+      - name: Verify key has no SHA-1
+        run: ./scripts/verify-key.sh Teleproxy
+
+      - name: Build teleproxy RPMs (amd64 + arm64)
+        env:
+          VERSION: ${{ steps.tag.outputs.version }}
+        run: ./scripts/build-rpms.sh
+
+      - name: Build teleproxy-release setup RPM
+        run: ./scripts/build-setup-rpm.sh
+
+      - name: Inspect RPMs
+        run: |
+          for rpm in out/*.rpm; do
+              echo "=== $rpm ==="
+              rpm -qpi "$rpm"
+              rpm -qpl "$rpm"
+              rpm -qp --scripts "$rpm" | head -40
+              # Verify signature
+              rpm -qpK "$rpm" || true
+              echo
+          done
+
+      - name: Assemble gh-pages tree
+        run: ./scripts/publish-tree.sh
+
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./_site
+          publish_branch: gh-pages
+          force_orphan: true
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: "publish: teleproxy ${{ steps.tag.outputs.tag }}"

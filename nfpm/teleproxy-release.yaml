@@ -1,0 +1,29 @@
+name: teleproxy-release
+arch: noarch
+platform: linux
+version: "1.0.0"
+release: "1"
+section: net
+priority: optional
+maintainer: "Teleproxy <noreply@teleproxy.github.io>"
+description: |
+  Teleproxy package repository configuration and GPG public key.
+  Drops /etc/yum.repos.d/teleproxy.repo and the public signing key
+  into /etc/pki/rpm-gpg/.
+vendor: "Teleproxy"
+homepage: https://github.com/teleproxy/repo
+license: GPL-2.0-or-later
+contents:
+  - src: ./files/teleproxy.repo
+    dst: /etc/yum.repos.d/teleproxy.repo
+    type: config|noreplace
+    file_info:
+      mode: 0644
+  - src: ./RPM-GPG-KEY-teleproxy
+    dst: /etc/pki/rpm-gpg/RPM-GPG-KEY-teleproxy
+    file_info:
+      mode: 0644
+rpm:
+  group: System Environment/Base
+  signature:
+    key_file: ${SIGNING_KEY_FILE}

@@ -1,0 +1,16 @@
+# Teleproxy configuration. Edit and run: systemctl reload teleproxy
+#
+# This file is a template. The actual /etc/teleproxy/config.toml is
+# generated on first install with a randomly-chosen secret.
+port = 443
+stats_port = 8888
+http_stats = true
+user = "teleproxy"
+direct = true
+workers = 1
+
+# Add one or more secrets. Each [[secret]] is a 32-char hex key.
+# Generate with: teleproxy generate-secret
+[[secret]]
+key = "00000000000000000000000000000000"
+label = "default"

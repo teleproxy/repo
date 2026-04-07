@@ -1,0 +1,6 @@
+bin/
+out/
+_site/
+*.asc
+!RPM-GPG-KEY-teleproxy
+.DS_Store
